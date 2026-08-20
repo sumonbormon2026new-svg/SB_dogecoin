@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dogecoin Core — Regtest Node</title>
+<style>
+  :root { --gold:#ba8f33; --gold2:#e6c068; --bg:#1a1612; --card:#241e18; --txt:#f3ead8; --mut:#9a8c72; --ok:#7bc47f; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+         background:radial-gradient(1200px 600px at 70% -10%, #2a2118, var(--bg)); color:var(--txt); min-height:100vh; }
+  header { padding:34px 28px 8px; max-width:980px; margin:0 auto; }
+  header h1 { margin:0; font-size:30px; letter-spacing:.3px; }
+  header h1 span { color:var(--gold2); }
+  header p { color:var(--mut); margin:6px 0 0; font-size:14px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:16px; padding:22px 28px; max-width:980px; margin:0 auto; }
+  .card { background:var(--card); border:1px solid #3a3026; border-radius:14px; padding:18px 20px; }
+  .card .label { color:var(--mut); font-size:12px; text-transform:uppercase; letter-spacing:.08em; }
+  .card .value { font-size:28px; font-weight:700; margin-top:6px; color:var(--gold2); }
+  .card .sub { color:var(--mut); font-size:13px; margin-top:4px; }
+  .status { display:inline-flex; align-items:center; gap:8px; font-size:13px; }
+  .dot { width:10px; height:10px; border-radius:50%; background:var(--mut); }
+  .dot.on { background:var(--ok); box-shadow:0 0 8px var(--ok); }
+  .actions { max-width:980px; margin:0 auto; padding:0 28px 40px; display:flex; gap:12px; flex-wrap:wrap; }
+  button { background:var(--gold); color:#1a1612; border:none; border-radius:10px; padding:12px 18px;
+           font-weight:700; font-size:14px; cursor:pointer; transition:transform .08s, background .15s; }
+  button:hover { background:var(--gold2); }
+  button:active { transform:scale(.97); }
+  button:disabled { opacity:.5; cursor:default; }
+  .note { color:var(--mut); font-size:13px; align-self:center; }
+  .err { color:#e08a8a; }
+  .foot { max-width:980px; margin:0 auto; padding:0 28px 40px; color:var(--mut); font-size:12px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>🐕 <span>Dogecoin Core</span> — Regtest Node</h1>
+    <p id="status" class="status"><span class="dot"></span> connecting…</p>
+  </header>
+
+  <div class="grid">
+    <div class="card"><div class="label">Block Height</div><div class="value" id="blocks">—</div><div class="sub" id="chain"></div></div>
+    <div class="card"><div class="label">Connections</div><div class="value" id="peers">—</div><div class="sub">peers</div></div>
+    <div class="card"><div class="label">Mempool</div><div class="value" id="mempool">—</div><div class="sub">transactions</div></div>
+    <div class="card"><div class="label">Wallet Balance</div><div class="value" id="balance">—</div><div class="sub">DOGE</div></div>
+    <div class="card"><div class="label">Version</div><div class="value" id="ver">—</div><div class="sub" id="subver"></div></div>
+    <div class="card"><div class="label">Sync Progress</div><div class="value" id="sync">—</div><div class="sub">% verified</div></div>
+  </div>
+
+  <div class="actions">
+    <button id="mine1">⛏ Mine 1 block</button>
+    <button id="mine10">⛏ Mine 10 blocks</button>
+    <span class="note" id="mineNote"></span>
+  </div>
+
+  <div class="foot">Dogecoin Core running in <b>regtest</b> mode inside Docker. Status is read live from the node's JSON-RPC. No external network sync — blocks are mined locally on demand.</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+function fmt(n){ return Number(n).toLocaleString(); }
+
+async function refresh(){
+  try {
+    const r = await (await fetch('/api/status')).json();
+    if (!r.ok) throw new Error(r.error);
+    $('status').innerHTML = '<span class="dot on"></span> node running';
+    $('blocks').textContent = fmt(r.chain.blocks);
+    $('chain').textContent = 'chain: ' + r.chain.chain + ' · headers ' + fmt(r.chain.headers);
+    $('peers').textContent = fmt(r.network.connections);
+    $('mempool').textContent = fmt(r.mempool.size);
+    $('balance').textContent = r.wallet ? r.wallet.balance.toFixed(2) : 'no wallet';
+    $('ver').textContent = r.network.version;
+    $('subver').textContent = (r.network.subversion || '').replace(/[\/]/g,'');
+    $('sync').textContent = (r.chain.verificationprogress * 100).toFixed(1);
+  } catch (e) {
+    $('status').innerHTML = '<span class="dot"></span> <span class="err">' + e.message + '</span>';
+  }
+}
+
+async function mine(n, btn){
+  btn.disabled = true;
+  $('mineNote').textContent = 'mining…';
+  try {
+    const r = await (await fetch('/api/mine?count=' + n)).json();
+    if (!r.ok) throw new Error(r.error);
+    $('mineNote').textContent = 'mined ' + r.blocks + ' block(s) ✓';
+    refresh();
+  } catch (e) {
+    $('mineNote').innerHTML = '<span class="err">' + e.message + '</span>';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+$('mine1').addEventListener('click', () => mine(1, $('mine1')));
+$('mine10').addEventListener('click', () => mine(10, $('mine10')));
+
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>

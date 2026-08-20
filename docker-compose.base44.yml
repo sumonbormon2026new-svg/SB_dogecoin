@@ -1,0 +1,62 @@
+services:
+  node:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+    volumes:
+      - node-data:/data
+    ports:
+      - "18332"
+      - "18444"
+    command:
+      - dogecoind
+      - -regtest
+      - -datadir=/data
+      - -server
+      - -printtoconsole
+      - -rpcuser=dogecoin
+      - -rpcpassword=base44regtest
+      - -rpcbind=0.0.0.0
+      - -rpcallowip=0.0.0.0/0
+      - -rpcport=18332
+      - -port=18444
+      - -listen
+      - -dnsseed=0
+      - -upnp=0
+    healthcheck:
+      test: ["CMD", "dogecoin-cli", "-regtest", "-datadir=/data", "-rpcuser=dogecoin", "-rpcpassword=base44regtest", "getblockcount"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 10s
+
+  init:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+    depends_on:
+      node:
+        condition: service_healthy
+    volumes:
+      - node-data:/data
+    command: ["sh", "/init.sh"]
+    restart: "no"
+
+  web:
+    build: ./web-dashboard
+    depends_on:
+      node:
+        condition: service_healthy
+    volumes:
+      - ./web-dashboard:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      - RPC_HOST=node
+      - RPC_PORT=18332
+      - RPC_USER=dogecoin
+      - RPC_PASSWORD=base44regtest
+
+volumes:
+  node-data:

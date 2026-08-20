@@ -1,0 +1,38 @@
+# Build + runtime image for Dogecoin Core daemon (regtest, no GUI).
+# The C++ daemon is compiled from source; the web dashboard is a separate
+# live-reload service that queries this node's JSON-RPC.
+FROM ubuntu:22.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential libtool autotools-dev automake pkg-config \
+    libssl-dev libevent-dev bsdmainutils \
+    libboost-system-dev libboost-filesystem-dev libboost-chrono-dev \
+    libboost-program-options-dev libboost-test-dev libboost-thread-dev \
+    libdb5.3++-dev libdb5.3-dev \
+    ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /dogecoin
+COPY . .
+RUN ./autogen.sh && \
+    ./configure --without-gui --disable-tests --disable-bench --without-miniupnpc && \
+    make -j"$(nproc)" && \
+    make install
+
+# --- runtime ---
+FROM ubuntu:22.04
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libssl3 libevent-2.1-7 libevent-pthreads-2.1-7 \
+    libboost-system1.74.0 libboost-filesystem1.74.0 libboost-chrono1.74.0 \
+    libboost-program-options1.74.0 libboost-thread1.74.0 \
+    libdb5.3++ ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /usr/local/bin/dogecoind /usr/local/bin/dogecoind
+COPY --from=builder /usr/local/bin/dogecoin-cli /usr/local/bin/dogecoin-cli
+COPY contrib/base44/init.sh /init.sh
+
+VOLUME /data
+EXPOSE 18332 18444
