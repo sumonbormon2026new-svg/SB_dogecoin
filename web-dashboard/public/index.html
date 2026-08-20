@@ -56,6 +56,19 @@
   .tx .amt.out { color:#e08a8a; }
   .tx .conf { display:block; font-size:11px; color:var(--mut); font-weight:400; margin-top:2px; }
   .empty { color:var(--mut); font-size:13px; padding:14px 4px; }
+  /* send form */
+  .send { max-width:980px; margin:0 auto; padding:0 28px 8px; }
+  .send-card { background:var(--card); border:1px solid #3a3026; border-radius:14px; padding:20px 22px; }
+  .send-card h2 { font-size:15px; margin:0 0 14px; }
+  .send-row { display:flex; gap:10px; flex-wrap:wrap; }
+  .send-row input { flex:1; min-width:200px; background:#1a1612; border:1px solid #3a3026; color:var(--txt);
+    border-radius:10px; padding:11px 13px; font-size:14px; font-family:inherit; }
+  .send-row input:focus { outline:none; border-color:var(--gold); }
+  .send-row input.amt { flex:0 0 130px; min-width:130px; }
+  .send-actions { display:flex; gap:10px; align-items:center; margin-top:12px; flex-wrap:wrap; }
+  .send-actions .note { margin-left:4px; }
+  .ghost { background:transparent; color:var(--gold2); border:1px solid #4a3d2c; }
+  .ghost:hover { background:#332a20; }
 </style>
 </head>
 <body>
@@ -77,6 +90,21 @@
     <button id="mine1">⛏ Mine 1 block</button>
     <button id="mine10">⛏ Mine 10 blocks</button>
     <span class="note" id="mineNote"></span>
+  </div>
+
+  <div class="send">
+    <div class="send-card">
+      <h2>💸 Send DOGE</h2>
+      <div class="send-row">
+        <input id="sendAddr" type="text" placeholder="Recipient regtest address (e.g. n…)…" autocomplete="off" />
+        <input id="sendAmt" class="amt" type="number" step="0.01" min="0" placeholder="Amount" />
+      </div>
+      <div class="send-actions">
+        <button id="sendBtn">Send</button>
+        <button id="genAddr" class="ghost">Generate test address</button>
+        <span class="note" id="sendNote"></span>
+      </div>
+    </div>
   </div>
 
   <div class="summary">
@@ -172,6 +200,41 @@ async function mine(n, btn){
 
 $('mine1').addEventListener('click', () => mine(1, $('mine1')));
 $('mine10').addEventListener('click', () => mine(10, $('mine10')));
+
+async function send(){
+  const address = $('sendAddr').value.trim();
+  const amount = $('sendAmt').value;
+  if (!address || !amount) { $('sendNote').innerHTML = '<span class="err">enter an address and amount</span>'; return; }
+  $('sendBtn').disabled = true;
+  $('sendNote').textContent = 'sending…';
+  try {
+    const r = await (await fetch('/api/send', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address, amount: parseFloat(amount) })
+    })).json();
+    if (!r.ok) throw new Error(r.error);
+    $('sendNote').innerHTML = 'sent ✓ txid ' + r.txid.slice(0,14) + '…';
+    $('sendAmt').value = '';
+    refresh(); refreshTx();
+  } catch (e) {
+    $('sendNote').innerHTML = '<span class="err">' + e.message + '</span>';
+  } finally {
+    $('sendBtn').disabled = false;
+  }
+}
+
+$('sendBtn').addEventListener('click', send);
+$('genAddr').addEventListener('click', async () => {
+  $('sendNote').textContent = 'generating…';
+  try {
+    const r = await (await fetch('/api/newaddress')).json();
+    if (!r.ok) throw new Error(r.error);
+    $('sendAddr').value = r.address;
+    $('sendNote').textContent = 'new address filled in';
+  } catch (e) {
+    $('sendNote').innerHTML = '<span class="err">' + e.message + '</span>';
+  }
+});
 
 refresh();
 refreshTx();

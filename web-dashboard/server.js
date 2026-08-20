@@ -21,6 +21,7 @@ async function rpc(method, params = []) {
 }
 
 const app = express();
+app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/api/status', async (_req, res) => {
@@ -54,6 +55,28 @@ app.get('/api/mine', async (req, res) => {
     res.json({ ok: true, blocks: blocks.length });
   } catch (e) {
     res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+app.get('/api/newaddress', async (_req, res) => {
+  try {
+    const address = await rpc('getnewaddress');
+    res.json({ ok: true, address });
+  } catch (e) {
+    res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+app.post('/api/send', async (req, res) => {
+  try {
+    const address = String(req.body.address || '').trim();
+    const amount = parseFloat(req.body.amount);
+    if (!address) throw new Error('address is required');
+    if (!amount || amount <= 0) throw new Error('amount must be a positive number');
+    const txid = await rpc('sendtoaddress', [address, amount]);
+    res.json({ ok: true, txid });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e.message });
   }
 });
 
