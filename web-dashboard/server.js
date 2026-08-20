@@ -37,6 +37,15 @@ app.get('/api/status', async (_req, res) => {
   }
 });
 
+app.get('/api/transactions', async (_req, res) => {
+  try {
+    const txs = await rpc('listtransactions', ['*', 20, 0, true]);
+    res.json({ ok: true, transactions: txs.reverse() });
+  } catch (e) {
+    res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
 app.get('/api/mine', async (req, res) => {
   try {
     const count = Math.min(Math.max(parseInt(req.query.count || '1', 10), 1), 1000);
